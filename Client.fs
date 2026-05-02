@@ -22,6 +22,90 @@ module Client =
     // and refresh your browser, no need to recompile unless you add or remove holes.
     type IndexTemplate = Template<"wwwroot/index.html", ClientLoad.FromDocument>
 
+    type CareTask = {
+        Id: int
+        Title: string
+        Time: string
+        Category: string
+        IsDone: bool
+    }
+
+    let careTasks =
+        Var.Create [
+            { Id = 1; Title = "Morning medication"; Time = "08:00"; Category = "Medication"; IsDone = true }
+            { Id = 2; Title = "Blood pressure check"; Time = "10:00"; Category = "Health"; IsDone = false }
+            { Id = 3; Title = "Doctor appointment"; Time = "14:00"; Category = "Appointment"; IsDone = false }
+            { Id = 4; Title = "Call family member"; Time = "18:00"; Category = "Family"; IsDone = false }
+        ]
+
+    let newTitle = Var.Create ""
+    let newTime = Var.Create ""
+    let newCategory = Var.Create ""
+
+    let addTask () =
+        if newTitle.Value <> "" then
+            let newTask =
+                { Id = int System.DateTime.Now.Ticks
+                  Title = newTitle.Value
+                  Time = newTime.Value
+                  Category = newCategory.Value
+                  IsDone = false }
+
+            careTasks.Set (careTasks.Value @ [ newTask ])
+
+            newTitle.Value <- ""
+            newTime.Value <- ""
+            newCategory.Value <- ""
+
+    let taskCard task =
+       div [
+           attr.``class`` "bg-white p-4 rounded-2xl shadow border border-slate-100 cursor-pointer"
+           on.click (fun _ _ ->
+                let updated =
+                    careTasks.Value
+                    |> List.map (fun t ->
+                        if t.Id = task.Id then
+                            { t with IsDone = not t.IsDone }
+                        else
+                            t
+                    )
+
+                careTasks.Set updated
+            )
+       ]
+            [
+                div [attr.``class`` "flex justify-between items-start gap-3"]
+                    [
+                        div []
+                            [
+                                h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
+                                    [text task.Title]
+
+                                p [attr.``class`` "text-sm text-slate-500"]
+                                    [text ("Time: " + task.Time)]
+
+                                p [attr.``class`` "text-sm text-slate-500"]
+                                    [text ("Category: " + task.Category)]
+                            ]
+
+                        if task.IsDone then
+                            span [attr.``class`` "text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium"]
+                                [text "Done"]
+                        else
+                            span [attr.``class`` "text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-medium"]
+                                [text "Pending"]
+                    ]
+            ]
+
+    let taskList =
+        careTasks.View
+        |> View.Map (fun tasks ->
+            tasks
+            |> List.map taskCard
+            |> Doc.Concat
+        )
+        |> Doc.EmbedView
+
     let People =
         ListModel.FromSeq [
             "John"
@@ -73,7 +157,36 @@ module Client =
                                             [text "Evening medication: pending"]
                                     ]
                             ]
-                        div [attr.``class`` "mt-6 bg-white p-5 rounded-2xl shado"]
+                        div [attr.``class`` "mt-6 bg-white p-5 rounded-2xl shadow"]
+                            [
+                                h2 [attr.``class`` "text-xl font-semibold mb-4"]
+                                    [text "Add New Task"]
+
+                                div [attr.``class`` "grid gap-3 md:grid-cols-4"]
+                                    [
+                                        Doc.Input [attr.placeholder "Task name"; attr.``class`` "border rounded-xl px-3 py-2"] newTitle
+
+                                        Doc.Input [attr.placeholder "Time"; attr.``class`` "border rounded-xl px-3 py-2"] newTime
+
+                                        Doc.Input [attr.placeholder "Category"; attr.``class`` "border rounded-xl px-3 py-2"] newCategory
+
+                                        button [
+                                            attr.``class`` "bg-blue-600 text-white rounded-xl px-4 py-2"
+                                            on.click (fun _ _ -> addTask())
+                                        ] [text "Add"]
+                                    ]
+                            ]
+                        div [attr.``class`` "mt-6"]
+                            [
+                                h2 [attr.``class`` "text-2xl font-bold mb-4 text-slate-800"]
+                                    [text "Today's Care Tasks"]
+
+                                div [attr.``class`` "grid gap-4 md:grid-cols-2"]
+                                    [
+                                        taskList
+                                    ]
+                            ]
+                        div [attr.``class`` "mt-6 bg-white p-5 rounded-2xl shadow"]
                             [
                                 h2 [attr.``class`` "text-xl font-semibold mb-2"]
                                     [text "Planned Modules"]
