@@ -30,6 +30,11 @@ module Client =
         IsDone: bool
     }
 
+    type TaskFilter =
+        | AllTasks
+        | PendingTasks
+        | DoneTasks
+
     let careTasks =
         Var.Create [
             { Id = 1; Title = "Morning medication"; Time = "08:00"; Category = "Medication"; IsDone = true }
@@ -41,6 +46,7 @@ module Client =
     let newTitle = Var.Create ""
     let newTime = Var.Create ""
     let newCategory = Var.Create ""
+    let selectedFilter = Var.Create AllTasks
 
     let addTask () =
         if newTitle.Value <> "" then
@@ -56,6 +62,11 @@ module Client =
             newTitle.Value <- ""
             newTime.Value <- ""
             newCategory.Value <- ""
+    let filterTasks filter tasks =
+        match filter with
+        | AllTasks -> tasks
+        | PendingTasks -> tasks |> List.filter (fun task -> not task.IsDone)
+        | DoneTasks -> tasks |> List.filter (fun task -> task.IsDone)
 
     let taskCard task =
        div [
@@ -98,13 +109,60 @@ module Client =
             ]
 
     let taskList =
-        careTasks.View
-        |> View.Map (fun tasks ->
-            tasks
+        View.Map2 (fun tasks filter ->
+            let visibleTasks =
+                filterTasks filter tasks
+
+            visibleTasks
             |> List.map taskCard
             |> Doc.Concat
-        )
+        ) careTasks.View selectedFilter.View
         |> Doc.EmbedView
+
+    let summaryCards =
+        Doc.BindView (fun tasks ->
+
+            let allCount =
+                tasks
+                |> List.length
+
+            let pendingCount =
+                tasks
+                |> List.filter (fun t -> not t.IsDone)
+                |> List.length
+
+            let doneCount =
+                tasks
+                |> List.filter (fun t -> t.IsDone)
+                |> List.length
+
+            div [attr.``class`` "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"]
+                [
+                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                    [
+                        p [attr.``class`` "text-slate-500 text-sm"] 
+                            [text "All tasks"]
+                        h3 [attr.``class`` "text-3xl font-bold mt-2 text-slate-800"]
+                            [text "4"]
+                    ]
+
+                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                    [
+                        p [attr.``class`` "text-slate-500 text-sm"] 
+                            [text "Pending"]
+                        h3 [attr.``class`` "text-3xl font-bold mt-2 text-orange-500"]
+                            [text "3"]
+                    ]
+
+                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                    [
+                        p [attr.``class`` "text-slate-500 text-sm"] 
+                            [text "Done"]
+                        h3 [attr.``class`` "text-3xl font-bold mt-2 text-green-600"]
+                            [text "1"]
+                    ]
+                ]
+        ) careTasks.View
 
     let People =
         ListModel.FromSeq [
@@ -180,6 +238,29 @@ module Client =
                             [
                                 h2 [attr.``class`` "text-2xl font-bold mb-4 text-slate-800"]
                                     [text "Today's Care Tasks"]
+                                
+                                summaryCards
+
+
+                                div [attr.``class`` "flex flex-wrap gap-3 mb-4"]
+                                    [
+
+                                        button [
+                                            attr.``class`` "px-4 py-2 rounded-xl bg-blue-600 text-white"
+                                            on.click (fun _ _ -> selectedFilter.Value <- AllTasks)
+                                        ] [ text "All" ]
+
+                                        button [
+                                            attr.``class`` "px-4 py-2 rounded-xl bg-orange-500 text-white"
+                                            on.click (fun _ _ -> selectedFilter.Value <- PendingTasks)
+                                        ] [ text "Pending" ]
+
+                                        button [
+                                            attr.``class`` "px-4 py-2 rounded-xl bg-green-600 text-white"
+                                            on.click (fun _ _ -> selectedFilter.Value <- DoneTasks)
+                                        ] [ text "Done" ]
+
+                                    ]
 
                                 div [attr.``class`` "grid gap-4 md:grid-cols-2"]
                                     [
