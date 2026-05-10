@@ -49,7 +49,7 @@ module Client =
     let selectedFilter = Var.Create AllTasks
 
     let addTask () =
-        if newTitle.Value <> "" then
+        if newTitle.Value <> "" && newTime.Value <> "" && newCategory.Value <> "" then
             let newTask =
                 { Id = int System.DateTime.Now.Ticks
                   Title = newTitle.Value
@@ -254,17 +254,73 @@ module Client =
 
                                 div [attr.``class`` "grid gap-3 md:grid-cols-4"]
                                     [
-                                        Doc.Input [attr.placeholder "Task name"; attr.``class`` "border rounded-xl px-3 py-2"] newTitle
+                                        Doc.Input [
+                                            attr.placeholder "Task name"
+                                            attr.``class`` "border  border-slate-200 rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                        ] newTitle
 
-                                        Doc.Input [attr.placeholder "Time"; attr.``class`` "border rounded-xl px-3 py-2"] newTime
 
                                         select [
-                                            attr.``class`` "border rounded-xl px-3 py-2 bg-white text-slate-700"
+                                            attr.``class`` "border rounded-slate-200 rounded-xl px-4 py-3 bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                            on.change (fun el _ ->
+                                                newTime.Value <- el?value
+                                            )
+                                        ] [
+                                            option [
+                                                attr.value ""
+                                                attr.selected "selected"
+                                                attr.disabled "disabled"
+                                            ] [
+                                                text "Select time"
+                                            ]
+                                            option [attr.value "06:00"] [text "06:00"]
+                                            option [attr.value "06:30"] [text "06:30"]
+                                            option [attr.value "07:00"] [text "07:00"]
+                                            option [attr.value "07:30"] [text "07:30"]
+                                            option [attr.value "08:00"] [text "08:00"]
+                                            option [attr.value "08:30"] [text "08:30"]
+                                            option [attr.value "09:00"] [text "09:00"]
+                                            option [attr.value "09:30"] [text "09:30"]
+                                            option [attr.value "10:00"] [text "10:00"]
+                                            option [attr.value "10:30"] [text "10:30"]
+                                            option [attr.value "11:00"] [text "11:00"]
+                                            option [attr.value "11:30"] [text "11:30"]
+                                            option [attr.value "12:00"] [text "12:00"]
+                                            option [attr.value "12:30"] [text "12:30"]
+                                            option [attr.value "13:00"] [text "13:00"]
+                                            option [attr.value "13:30"] [text "13:30"]
+                                            option [attr.value "14:00"] [text "14:00"]
+                                            option [attr.value "14:30"] [text "14:30"]
+                                            option [attr.value "15:00"] [text "15:00"]
+                                            option [attr.value "15:30"] [text "15:30"]
+                                            option [attr.value "16:00"] [text "16:00"]
+                                            option [attr.value "16:30"] [text "16:30"]
+                                            option [attr.value "17:00"] [text "17:00"]
+                                            option [attr.value "17:30"] [text "17:30"]
+                                            option [attr.value "18:00"] [text "18:00"]
+                                            option [attr.value "18:30"] [text "18:30"]
+                                            option [attr.value "19:00"] [text "19:00"]
+                                            option [attr.value "19:30"] [text "19:30"]
+                                            option [attr.value "20:00"] [text "20:00"]
+                                            option [attr.value "20:30"] [text "20:30"]
+                                            option [attr.value "21:00"] [text "21:00"]
+                                            option [attr.value "21:30"] [text "21:30"]
+                                            option [attr.value "22:00"] [text "22:00"]
+                                        ]
+
+                                        select [
+                                            attr.``class`` "border border-slate-200 rounded-xl px-4 py-3 bg-white text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-400"
                                             on.change (fun el _ ->
                                                 newCategory.Value <- el?value
                                             )
                                         ] [
-                                            option [attr.value ""] [text "Select category"]
+                                            option [
+                                                attr.value ""
+                                                attr.selected "selected"
+                                                attr.disabled "disabled"
+                                                ] [
+                                                    text "Select category"
+                                                ]
                                             option [attr.value "Medication"] [text "Medication"]
                                             option [attr.value "Health"] [text "Health"]
                                             option [attr.value "Appointment"] [text "Appointment"]
@@ -272,9 +328,13 @@ module Client =
                                         ]
 
                                         button [
-                                            attr.``class`` "bg-blue-600 text-white rounded-xl px-4 py-2"
+                                            attr.``class`` "bg-blue-600 hover:bg-blue-700 transition-all text-white rounded-xl px-5 py-3 font-medium shadow-md"
+
+                
                                             on.click (fun _ _ -> addTask())
-                                        ] [text "Add"]
+                                        ] [
+                                            text "Add"
+                                        ]
                                     ]
                             ]
                         div [attr.``class`` "mt-6"]
