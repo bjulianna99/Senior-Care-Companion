@@ -35,6 +35,12 @@ module Client =
         | PendingTasks
         | DoneTasks
 
+    type AppPage =
+        | DashboardPage
+        | TasksPage
+        | GalleryPage
+        | ProfilePage
+
     let careTasks =
         Var.Create [
             { Id = 1; Title = "Morning medication"; Time = "08:00"; Category = "Medication"; IsDone = true }
@@ -47,6 +53,7 @@ module Client =
     let newTime = Var.Create ""
     let newCategory = Var.Create ""
     let selectedFilter = Var.Create AllTasks
+    let selectedAppPage = Var.Create DashboardPage
 
     let addTask () =
         if newTitle.Value <> "" && newTime.Value <> "" && newCategory.Value <> "" then
@@ -196,6 +203,234 @@ module Client =
                 ]
         ) careTasks.View
 
+    let renderAppPage page =
+        match page with
+        | DashboardPage -> 
+            div [] [
+                h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
+                    [text "Dashboad Page"]
+            (*
+                p [attr.``class`` "text-slate-600 mb-6"]
+                    [text "Dashboard Page"]
+*)
+                div [attr.``class`` "grid gap-4 md:grid-cols-3"]
+                    [
+                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                            [
+                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
+                                    [text "Today's Status"]
+
+                                p [attr.``class`` "text-green-700 font-medium"]
+                                    [text "Everything is under control ✔"]
+                            ]
+                        
+                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                            [
+                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
+                                    [text "Next Appointment"]
+
+                                p [attr.``class`` "text-slate-600"]
+                                    [text "Doctor appointment at 14:00"]
+                            ]
+
+                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                            [
+                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
+                                    [text "Medication"]
+
+                                p [attr.``class`` "text-slate-600"]
+                                    [text "Morning medication: completed"]
+
+                                p [attr.``class`` "text-red-600 font-medium"]
+                                    [text "Evening medication: pending"]
+                            ]
+
+                    ]
+                div [attr.``class`` "mt-6"]
+                    [
+                        summaryCards
+                    ]
+            ]
+
+        | TasksPage ->
+            div [] [
+                h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
+                    [text "Care Tasks"]
+            
+                div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                    [
+                        h2 [attr.``class`` "text-xl font-semibold mb-4"]
+                            [text "Add New Task"]
+
+                        div [attr.``class`` "grid gap-3 md:grid-cols-4"]
+                            [    
+                                Doc.Input [
+                                    attr.placeholder "Task name"
+                                    attr.``class`` "border border-slate-200 rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                ] newTitle
+
+                                select [
+                                    attr.``class`` "border border-slate-200 rounded-xl px-4 py-3 bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    on.change (fun el _ ->
+                                        newTime.Value <- el?value
+                                    )
+                                ] [
+                                    option [
+                                        attr.value ""
+                                        attr.selected "selected"
+                                        attr.disabled "disabled"
+                                    ] [
+                                        text "Select time"
+                                    ]
+
+                                    option [attr.value "08:00"] [text "08:00"]
+                                    option [attr.value "10:00"] [text "10:00"]
+                                    option [attr.value "14:00"] [text "14:00"]
+                                    option [attr.value "18:00"] [text "18:00"]
+                                ]
+
+                                select [
+                                    attr.``class`` "border border-slate-200 rounded-xl px-4 py-3 bg-white text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-400"
+                                    on.change (fun el _ ->
+                                        newCategory.Value <- el?value
+                                    )
+                                ] [
+
+                                    option [
+                                        attr.value ""
+                                        attr.selected "selected"
+                                        attr.disabled "disabled"
+                                    ] [
+                                        text "Select category"
+                                    ]
+
+                                    option [attr.value "Medication"] [text "Medication"]
+                                    option [attr.value "Health"] [text "Health"]
+                                    option [attr.value "Appointment"] [text "Appointment"]
+                                    option [attr.value "Family"] [text "Family"]
+                                ]
+
+                                button [
+                                    attr.``class`` "bg-blue-600 hover:bg-blue-700 transition-all text-white rounded-xl px-5 py-3 font-medium shadow-md"
+                                    on.click (fun _ _ -> addTask())
+                                ] [
+                                    text "Add"
+                                ]
+                            ]
+                    ]
+
+                div [attr.``class`` "mt-6"]
+                    [
+                        div [attr.``class`` "flex flex-wrap gap-3 mb-4"]
+                            [
+                                button [
+                                    attr.``class`` "px-4 py-2 rounded-xl bg-blue-600 text-white"
+                                    on.click (fun _ _ ->
+                                        selectedFilter.Value <- AllTasks
+                                    )
+                                ] [
+                                    text "All"
+                                ]
+
+                                button [
+                                    attr.``class`` "px-4 py-2 rounded-xl bg-orange-500 text-white"
+                                    on.click (fun _ _ ->
+                                        selectedFilter.Value <- PendingTasks
+                                    )
+                                ] [
+                                    text "Pending"
+                                ]
+
+                                button [
+                                    attr.``class`` "px-4 py-2 rounded-xl bg-green-600 text-white"
+                                    on.click (fun _ _ ->
+                                        selectedFilter.Value <- DoneTasks
+                                    )
+                                ] [
+                                    text "Done"
+                                ]
+                            ]
+
+                        div [attr.``class`` "grid gap-4 md:grid-cols-2"]
+                            [
+                                taskList
+                            ]
+                    ]
+            ]
+
+        | GalleryPage ->
+            div [] [
+                h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
+                    [text "Gallery"]
+            
+                p [attr.``class`` "text-slate-600 mb-6"]
+                    [text "Family photo gallery page"]
+            ]
+
+        | ProfilePage ->
+            div [] [
+                h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
+                    [text "Profile"]
+
+                p [attr.``class`` "text-slate-600 mb-6"]
+                    [text "Senior personal profile page"]
+            ]
+
+    let navbar = 
+        nav [attr.``class`` "max-w-7xl mx-auto px-4"]
+            [
+                div [attr.``class`` "flex justify-between h-16 items-center"]
+                    
+                    [
+                        
+                        h1 [attr.``class`` "text-xl font-bold text-slate-800"]
+                            [
+                                text "Senior Care Companion"
+                            ]
+                        
+                        div [attr.``class`` "flex gap-6"]
+                            [
+                            
+                                button [
+                                    attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
+                                    on.click (fun _ _ ->
+                                        selectedAppPage.Value <- DashboardPage
+                                    )
+                                ] [
+                                    text "Dashboard"
+                                ]
+
+                                button [
+                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
+                                     on.click (fun _ _ ->
+                                         selectedAppPage.Value <- TasksPage
+                                     )
+                                ] [
+                                     text "Tasks"
+                                ]
+
+                                button [
+                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
+                                     on.click (fun _ _ ->
+                                         selectedAppPage.Value <- GalleryPage
+                                     )
+                                ] [
+                                     text "Gallery"
+                                ]
+
+                                button [
+                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
+                                     on.click (fun _ _ ->
+                                         selectedAppPage.Value <- ProfilePage
+                                     )
+                                ] [
+                                     text "Profile"
+                                ]
+                            ]
+                    ]
+            ]
+
+
     let People =
         ListModel.FromSeq [
             "John"
@@ -213,6 +448,10 @@ module Client =
                return
                     div [attr.``class`` "p-6 bg-slate-100 min-h-screen"]
                     [
+                        Doc.BindView renderAppPage selectedAppPage.View
+                    ]
+                }
+        (*              
                         h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
                             [text "Senior Care Companion"]
 
@@ -329,8 +568,6 @@ module Client =
 
                                         button [
                                             attr.``class`` "bg-blue-600 hover:bg-blue-700 transition-all text-white rounded-xl px-5 py-3 font-medium shadow-md"
-
-                
                                             on.click (fun _ _ -> addTask())
                                         ] [
                                             text "Add"
@@ -387,6 +624,7 @@ module Client =
                             ]
                     ]
             }
+          *)  
 
         let Echo (msg:string) =
             text msg
@@ -511,6 +749,7 @@ module Client =
             |> Doc.EmbedView
 
         IndexTemplate()
+            .Navbar(navbar)
             .Content(
                 renderInnerPage currentPage
                 //client (...)
