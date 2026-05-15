@@ -54,6 +54,8 @@ module Client =
     let newCategory = Var.Create ""
     let selectedFilter = Var.Create AllTasks
     let selectedAppPage = Var.Create DashboardPage
+    let mobileMenuOpen = Var.Create false
+    let tasksStorageKey = "careTasks"
 
     let profileName = Var.Create ""
     let profileBirthDate = Var.Create ""
@@ -89,6 +91,52 @@ module Client =
         loadValue "emergencyPhone" emergencyPhone
         loadValue "medicalNotes" medicalNotes
 
+    let taskToStorageLine task =
+        string task.Id + "§" +
+        task.Title + "§" +
+        task.Time + "§" +
+        task.Category + "§" +
+        string task.IsDone
+
+    let taskFromStorageLine (line: string) =
+        let parts = line.Split('§')
+
+        if parts.Length = 5 then
+            match System.Int32.TryParse(parts.[0]), System.Boolean.TryParse(parts.[4]) with
+            | (true, id), (true, isDone) ->
+                Some {
+                    Id = id
+                    Title = parts.[1]
+                    Time = parts.[2]
+                    Category = parts.[3]
+                    IsDone = isDone
+                }
+            | _ ->
+                None
+
+        else
+            None
+
+    let saveTasks () =
+        let savedText =
+            careTasks.Value
+            |> List.map taskToStorageLine
+            |> String.concat "\n"
+
+        JS.Window.LocalStorage.SetItem(tasksStorageKey, savedText)
+
+    let loadTasks () =
+        let savedText =
+            JS.Window.LocalStorage.GetItem(tasksStorageKey)
+
+        if savedText <> null && savedText <> "" then
+            let loadedTasks =
+                savedText.Split('\n')
+                |> Array.choose taskFromStorageLine
+                |> Array.toList
+
+            if loadedTasks.Length > 0 then
+                careTasks.Value <- loadedTasks
 
     let addTask () =
         if newTitle.Value <> "" && newTime.Value <> "" && newCategory.Value <> "" then
@@ -100,6 +148,7 @@ module Client =
                   IsDone = false }
 
             careTasks.Set (careTasks.Value @ [ newTask ])
+            saveTasks()
 
             newTitle.Value <- ""
             newTime.Value <- ""
@@ -109,6 +158,12 @@ module Client =
         | AllTasks -> tasks
         | PendingTasks -> tasks |> List.filter (fun task -> not task.IsDone)
         | DoneTasks -> tasks |> List.filter (fun task -> task.IsDone)
+
+    let navButtonClass selectedPage page=
+        if selectedPage = page then
+            "text-blue-700 bg-blue-50 px-3 py-2 rounded-xl font-semibold"
+        else
+            "text-slate-700 hover:text-blue-600 px-3 py-2 rounded-xl font-medium"
 
     let categoryClass category =
         match category with
@@ -132,6 +187,7 @@ module Client =
                     )
 
                 careTasks.Set updated
+                saveTasks()
             )
        ]
             [
@@ -174,6 +230,7 @@ module Client =
                                             |> List.filter (fun t -> t.Id <> task.Id)
 
                                         careTasks.Set updated
+                                        saveTasks()
                                     )
                                 ] [
                                     text "Delete"
@@ -187,9 +244,34 @@ module Client =
             let visibleTasks =
                 filterTasks filter tasks
 
-            visibleTasks
-            |> List.map taskCard
-            |> Doc.Concat
+            if List.isEmpty visibleTasks then
+
+                div [attr.``class`` "bg-white rounded-2xl shadow p-10 text-center col-span-full"]
+                    [
+                        div [attr.``class`` "text-5xl mb-4"]
+                            [
+                                text "📋"
+                            ]
+
+                        h3 [attr.``class`` "text-xl font-semibold text-slate-700 mb-2"]
+                            [
+                                text "No tasks available"
+                            ]
+
+                        p [attr.``class`` "text-slate-500"]
+                            [
+                                text "Add a new care task to get started."
+                            ]
+                    ]
+            else
+
+                div [attr.``class`` "grid gap-4 md:grid-cols-2"]
+                    [
+                        yield!
+                            visibleTasks
+                            |> List.map taskCard
+                    ]    
+
         ) careTasks.View selectedFilter.View
         |> Doc.EmbedView
 
@@ -386,7 +468,7 @@ module Client =
                                 ]
                             ]
 
-                        div [attr.``class`` "grid gap-4 md:grid-cols-2"]
+                        div []
                             [
                                 taskList
                             ]
@@ -555,59 +637,129 @@ module Client =
             ]
 
     let navbar = 
-        nav [attr.``class`` "max-w-7xl mx-auto px-4"]
+        nav [attr.``class`` "bg-white shadow-md"]
             [
-                div [attr.``class`` "flex justify-between h-16 items-center"]
-                    
+
+                div [attr.``class`` "max-w-7xl mx-auto px-4"]
                     [
-                        
-                        h1 [attr.``class`` "text-xl font-bold text-slate-800"]
+
+                        div [attr.``class`` "flex justify-between items-center h-16"]
                             [
-                                text "Senior Care Companion"
-                            ]
-                        
-                        div [attr.``class`` "flex gap-6"]
-                            [
-                            
+
+                                h1 [attr.``class`` "text-xl font-bold text-slate-800"]
+                                    [
+                                        text "Senior Care Companion"
+                                    ]
+
+                                div [attr.``class`` "hidden md:flex gap-6"]
+                                    [
+
+                                        button [
+                                            attr.``class`` (navButtonClass selectedAppPage.Value DashboardPage)
+                                            on.click (fun _ _ ->
+                                                selectedAppPage.Value <- DashboardPage
+                                            )
+                                        ] [
+                                            text "Dashboard"
+                                        ]
+
+                                        button [
+                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
+                                            on.click (fun _ _ ->
+                                                selectedAppPage.Value <- TasksPage
+                                            )
+                                        ] [
+                                            text "Tasks"
+                                        ]
+
+                                        button [
+                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
+                                            on.click (fun _ _ ->
+                                                selectedAppPage.Value <- GalleryPage
+                                            )
+                                        ] [
+                                            text "Gallery"
+                                        ]
+
+                                        button [
+                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
+                                            on.click (fun _ _ ->
+                                                selectedAppPage.Value <- ProfilePage
+                                            )
+                                        ] [
+                                            text "Profile"
+                                        ]
+                                    ]
+
                                 button [
-                                    attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
+                                    attr.``class`` "md:hidden text-slate-700 text-2xl"
+
+                                    on.click (fun _ _ ->
+                                        mobileMenuOpen.Value <- not mobileMenuOpen.Value
+                                    )
+                                ] [
+                                    text "☰"
+                                ]
+                            ]
+                    ]
+
+                Doc.BindView (fun isOpen ->
+
+                    if isOpen then
+
+                        div [attr.``class`` "md:hidden bg-white border-t border-slate-200 px-4 py-4 flex flex-col gap-4"]
+                            [
+
+                                button [
+                                    attr.``class`` "text-left text-slate-700 font-medium"
+
                                     on.click (fun _ _ ->
                                         selectedAppPage.Value <- DashboardPage
+                                        mobileMenuOpen.Value <- false
                                     )
                                 ] [
                                     text "Dashboard"
                                 ]
 
                                 button [
-                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
-                                     on.click (fun _ _ ->
-                                         selectedAppPage.Value <- TasksPage
-                                     )
+                                    attr.``class`` "text-left text-slate-700 font-medium"
+
+                                    on.click (fun _ _ ->
+                                        selectedAppPage.Value <- TasksPage
+                                        mobileMenuOpen.Value <- false
+                                    )
                                 ] [
-                                     text "Tasks"
+                                    text "Tasks"
                                 ]
 
                                 button [
-                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
-                                     on.click (fun _ _ ->
-                                         selectedAppPage.Value <- GalleryPage
-                                     )
+                                    attr.``class`` "text-left text-slate-700 font-medium"
+
+                                    on.click (fun _ _ ->
+                                        selectedAppPage.Value <- GalleryPage
+                                        mobileMenuOpen.Value <- false
+                                    )
                                 ] [
-                                     text "Gallery"
+                                    text "Gallery"
                                 ]
 
                                 button [
-                                     attr.``class`` "text-slate-700 hover:text-blue-600 font-medium"
-                                     on.click (fun _ _ ->
-                                         selectedAppPage.Value <- ProfilePage
-                                     )
+                                    attr.``class`` "text-left text-slate-700 font-medium"
+
+                                    on.click (fun _ _ ->
+                                        selectedAppPage.Value <- ProfilePage
+                                        mobileMenuOpen.Value <- false
+                                    )
                                 ] [
-                                     text "Profile"
+                                    text "Profile"
                                 ]
                             ]
-                    ]
-            ]
+                    
+                    else
+                        Doc.Empty
 
+                ) mobileMenuOpen.View
+            ]
 
     let People =
         ListModel.FromSeq [
@@ -906,6 +1058,7 @@ module Client =
     [<SPAEntryPoint>]
     let Main () =
         loadProfile()
+        loadTasks()
 
         let newName = Var.Create ""
 
