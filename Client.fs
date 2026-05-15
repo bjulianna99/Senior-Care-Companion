@@ -40,6 +40,7 @@ module Client =
         | TasksPage
         | GalleryPage
         | ProfilePage
+        | SettingsPage
 
     let careTasks =
         Var.Create [
@@ -57,6 +58,11 @@ module Client =
     let mobileMenuOpen = Var.Create false
     let tasksStorageKey = "careTasks"
 
+    let largeTextMode = Var.Create false
+    let highContrastMode = Var.Create false
+    let showReminders = Var.Create true
+    let settingsStorageKey = "careSettings"
+
     let profileName = Var.Create ""
     let profileBirthDate = Var.Create ""
     let profileHeight = Var.Create ""
@@ -64,6 +70,37 @@ module Client =
     let emergencyContact = Var.Create ""
     let emergencyPhone = Var.Create ""
     let medicalNotes = Var.Create ""
+    let morningMedicationDone = Var.Create true
+    let noonMedicationDone = Var.Create false
+    let eveningMedicationDone = Var.Create false
+
+    let saveSettings () =
+        let savedText =
+            string largeTextMode.Value + "§" +
+            string highContrastMode.Value + "§" +
+            string showReminders.Value
+
+        JS.Window.LocalStorage.SetItem(settingsStorageKey, savedText)
+
+    let loadSettings () =
+        let savedText =
+            JS.Window.LocalStorage.GetItem(settingsStorageKey)
+
+        if savedText <> null && savedText <> "" then
+            let parts = savedText.Split('§')
+
+            if parts.Length = 3 then
+                match System.Boolean.TryParse(parts.[0]) with
+                | true, value -> largeTextMode.Value <- value
+                | _ -> ()
+
+                match System.Boolean.TryParse(parts.[1]) with
+                | true, value -> highContrastMode.Value <- value
+                | _ -> ()
+
+                match System.Boolean.TryParse(parts.[2]) with
+                | true, value -> showReminders.Value <- value
+                | _ -> ()
 
     let saveProfile () =
         JS.Window.LocalStorage.SetItem("profileName", profileName.Value)
@@ -165,6 +202,41 @@ module Client =
         else
             "text-slate-700 hover:text-blue-600 px-3 py-2 rounded-xl font-medium"
 
+    let settingToggle title description (settingVar: Var<bool>) =
+        Doc.BindView (fun isEnabled ->
+
+            div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100 flex items-center justify-between gap-4"]
+                [
+                    div []
+                        [
+                            h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
+                                [text title]
+
+                            p [attr.``class`` "text-sm text-slate-500 mt-1"]
+                                [text description]
+                        ]
+
+                    button [
+                        attr.``class`` (
+                            if settingVar.Value then
+                                "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow"
+                            else
+                                "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
+                        )
+
+                        on.click (fun _ _ ->
+                            settingVar.Value <- not settingVar.Value
+                            saveSettings()
+                        )
+                    ] [
+                        if settingVar.Value then
+                            text "On"
+                        else
+                            text "Off"
+                    ]
+                ]
+            ) settingVar.View
+
     let categoryClass category =
         match category with
         | "Medication" -> "bg-blue-100 text-blue-700"
@@ -172,6 +244,61 @@ module Client =
         | "Appointment" -> "bg-green-100 text-green-700"
         | "Family" -> "bg-pink-100 text-pink-700"
         | _ -> "bg-slate-100 text-slate-700"
+
+    let medicationReminderCard title time (statusVar: Var<bool>) =
+        Doc.BindView (fun isDone ->
+            div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+                [
+                    div [attr.``class`` "flex justify-between items-start"]
+                        [
+                            div []
+                                [
+                                    h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
+                                        [text title]
+
+                                    p [attr.``class`` "text-sm text-slate-500 mt-1"]
+                                        [text ("Scheduled time: " + time)]
+                                ]
+
+                            span [
+                                attr.``class`` (
+                                    if isDone then
+                                        "text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium"
+                                    else
+                                        "text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-medium"
+                                )
+                            ] [
+                                text (
+                                    if isDone then
+                                        "Completed"
+                                    else
+                                        "Pending"
+                                )
+                            ]
+                        ]
+
+                    button [
+                        attr.``class`` (
+                            if isDone then
+                                "mt-4 w-full bg-slate-200 text-slate-700 rounded-xl px-4 py-3 font-medium"
+                            else
+                                "mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-3 font-medium transition-all"
+                        )
+
+                        on.click (fun _ _ ->
+                            statusVar.Value <- not statusVar.Value
+                        )
+                    ] [
+                        text (
+                            if isDone then
+                                "Set as Pending"
+                            else
+                                title + " taken"
+                        )
+                    ]
+                ]
+        ) statusVar.View
+
 
     let taskCard task =
        div [
@@ -367,6 +494,38 @@ module Client =
                     [
                         summaryCards
                     ]
+                Doc.BindView (fun remindersEnabled ->
+
+                    if remindersEnabled then
+
+                        div [attr.``class`` "mt-8"]
+                            [
+                                h2 [attr.``class`` "text-2xl font-bold text-slate-800 mb-4"]
+                                    [text "Medication Reminders"]
+
+                                div [attr.``class`` "grid gap-4 md:grid-cols-3"]
+                                    [
+                                        medicationReminderCard
+                                            "Morning medication"
+                                            "08:00"
+                                            morningMedicationDone
+
+                                        medicationReminderCard
+                                            "Noon medication"
+                                            "12:00"
+                                            noonMedicationDone
+
+                                        medicationReminderCard
+                                            "Evening medication"
+                                            "18:00"
+                                            eveningMedicationDone
+                                    ]
+                            ]
+                    else
+                        Doc.Empty
+
+                ) showReminders.View
+
             ]
 
         | TasksPage ->
@@ -636,6 +795,42 @@ module Client =
                     ]
             ]
 
+        | SettingsPage ->
+            div [] [
+                h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
+                    [text "Settings"]
+
+                p [attr.``class`` "text-slate-600 mb-6"]
+                    [text "Accessibility and reminder preferences for elderly users."]
+
+                div [attr.``class`` "grid gap-4"]
+                    [
+                        settingToggle
+                            "Large text mode"
+                            "Makes the interface easier to read for elderly users."
+                            largeTextMode
+
+                        settingToggle
+                            "High contrast mode"
+                            "Improves visibility by preparing stronger contrast options."
+                            highContrastMode
+
+                        settingToggle
+                            "Show reminders"
+                            "Controls whether care and medication reminders should be visible."
+                            showReminders
+                    ]
+
+                div [attr.``class`` "mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5"]
+                    [
+                        h2 [attr.``class`` "text-xl font-semibold text-blue-800 mb-2"]
+                            [text "Accessibility note"]
+
+                        p [attr.``class`` "text-blue-700"]
+                            [text "These settings prepare the application for elderly-friendly usability improvements, such as larger text, better contrast and reminder visibility."]
+                    ]
+            ]
+
     let navbar = 
         nav [attr.``class`` "bg-white shadow-md"]
             [
@@ -673,7 +868,7 @@ module Client =
                                         ]
 
                                         button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
+                                            attr.``class`` (navButtonClass selectedAppPage.Value GalleryPage)
                                             on.click (fun _ _ ->
                                                 selectedAppPage.Value <- GalleryPage
                                             )
@@ -682,12 +877,21 @@ module Client =
                                         ]
 
                                         button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
+                                            attr.``class`` (navButtonClass selectedAppPage.Value ProfilePage)
                                             on.click (fun _ _ ->
                                                 selectedAppPage.Value <- ProfilePage
                                             )
                                         ] [
                                             text "Profile"
+                                        ]
+
+                                        button [
+                                            attr.``class`` (navButtonClass selectedAppPage.Value SettingsPage)
+                                            on.click (fun _ _ ->
+                                                selectedAppPage.Value <- SettingsPage
+                                            )
+                                        ] [
+                                            text "Settings"
                                         ]
                                     ]
 
@@ -752,6 +956,16 @@ module Client =
                                     )
                                 ] [
                                     text "Profile"
+                                ]
+                                button [
+                                    attr.``class`` "text-left text-slate-700 font-medium"
+
+                                    on.click (fun _ _ ->
+                                        selectedAppPage.Value <- SettingsPage
+                                        mobileMenuOpen.Value <- false
+                                    )
+                                ] [
+                                    text "Settings"
                                 ]
                             ]
                     
@@ -1059,6 +1273,7 @@ module Client =
     let Main () =
         loadProfile()
         loadTasks()
+        loadSettings()
 
         let newName = Var.Create ""
 
