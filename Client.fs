@@ -55,6 +55,41 @@ module Client =
     let selectedFilter = Var.Create AllTasks
     let selectedAppPage = Var.Create DashboardPage
 
+    let profileName = Var.Create ""
+    let profileBirthDate = Var.Create ""
+    let profileHeight = Var.Create ""
+    let profileWeight = Var.Create ""
+    let emergencyContact = Var.Create ""
+    let emergencyPhone = Var.Create ""
+    let medicalNotes = Var.Create ""
+
+    let saveProfile () =
+        JS.Window.LocalStorage.SetItem("profileName", profileName.Value)
+        JS.Window.LocalStorage.SetItem("profileBirthDate", profileBirthDate.Value)
+        JS.Window.LocalStorage.SetItem("profileHeight", profileHeight.Value)
+        JS.Window.LocalStorage.SetItem("profileWeight", profileWeight.Value)
+        JS.Window.LocalStorage.SetItem("emergencyContact", emergencyContact.Value)
+        JS.Window.LocalStorage.SetItem("emergencyPhone", emergencyPhone.Value)
+        JS.Window.LocalStorage.SetItem("medicalNotes", medicalNotes.Value)
+
+        JS.Alert "Profile saved successfully."
+
+    let loadProfile () =
+        let loadValue key (target: Var<string>) =
+            let savedValue = JS.Window.LocalStorage.GetItem(key)
+
+            if savedValue <> null then
+                target.Value <- savedValue
+
+        loadValue "profileName" profileName
+        loadValue "profileBirthDate" profileBirthDate
+        loadValue "profileHeight" profileHeight
+        loadValue "profileWeight" profileWeight
+        loadValue "emergencyContact" emergencyContact
+        loadValue "emergencyPhone" emergencyPhone
+        loadValue "medicalNotes" medicalNotes
+
+
     let addTask () =
         if newTitle.Value <> "" && newTime.Value <> "" && newCategory.Value <> "" then
             let newTask =
@@ -361,19 +396,162 @@ module Client =
         | GalleryPage ->
             div [] [
                 h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
-                    [text "Gallery"]
+                    [text "Family Gallery"]
             
                 p [attr.``class`` "text-slate-600 mb-6"]
-                    [text "Family photo gallery page"]
+                    [text "Shared family memories and important photo update"]
+
+                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+                    [
+                        div [attr.``class`` "h-40 rounded-xl bg-blue-50 flex items-center justify-center text-6xl mb-4"]
+                            [text "📷"]
+                        
+                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                            [text "Family photo"]
+
+                        p [attr.``class`` "text-slate-600 mb-3"]
+                            [text "A new picture was uploaded by the family"]
+
+                        span [attr.``class`` "text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium"]
+                            [text "New"]
+                    ]
+                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+                    [
+                        div [attr.``class`` "h-40 rounded-xl bg-green-50 flex items-center justify-center text-6xl mb-4"]
+                            [text "🌿"]
+
+                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                            [text "Garden walk"]
+
+                        p [attr.``class`` "text-slate-600 mb-3"]
+                            [text "A calm outdoor memory from a family visit."]
+
+                        span [attr.``class`` "text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium"]
+                            [text "Recent"]
+                    ]
+                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+                    [
+                        div [attr.``class`` "h-40 rounded-xl bg-pink-50 flex items-center justify-center text-6xl mb-4"]
+                            [text "🎂"]
+
+                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                            [text "Birthday memory"]
+
+                        p [attr.``class`` "text-slate-600 mb-3"]
+                            [text "A shared family celebration photo."]
+
+                        span [attr.``class`` "text-sm bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium"]
+                            [text "Memory"]
+                    ]
             ]
 
         | ProfilePage ->
             div [] [
                 h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
-                    [text "Profile"]
+                    [text "Personal Profile"]
 
                 p [attr.``class`` "text-slate-600 mb-6"]
-                    [text "Senior personal profile page"]
+                    [text "Important personal and health related information"]
+
+                div [attr.``class`` "grid gap-6 md:grid-cols-2"]
+
+                    [
+                        div [attr.``class`` "bg-white rounded-2xl shadow p-6"]
+                            [
+                                h2 [attr.``class`` "text-2xl font-semibold mb-5 text-slate-800"]
+                                    [text "Personal Information"]
+
+                                div [attr.``class`` "space-y-4"]
+                                    [
+                                        Doc.Input [
+                                            attr.placeholder "Full name"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] profileName
+
+                                        Doc.Input [
+                                            attr.placeholder "Birth date (YYYY-MM-DD)"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] profileBirthDate
+
+                                        div [attr.``class`` "bg-slate-100 rounded-xl px-4 py-3 text-slate-700 font-medium"]
+                                            [
+                                                 Doc.BindView (fun (birthDate: string) ->
+
+                                                    let currentYear =
+                                                        System.DateTime.Now.Year
+
+                                                    let ageText =
+
+                                                        if birthDate.Length >= 4 then
+
+                                                            let birthYear =
+                                                                birthDate.Substring(0, 4)
+
+                                                            match System.Int32.TryParse(birthYear) with
+                                                            | true, year ->
+                                                                "Age: " + string (currentYear - year) + " years"
+
+                                                            | _ ->
+                                                                "Age: -"
+
+                                                        else
+                                                            "Age: -"
+
+                                                    text ageText
+
+                                                ) profileBirthDate.View
+
+                                            ]
+                                    
+
+                                        Doc.Input [
+                                            attr.placeholder "Height"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] profileHeight
+
+                                        Doc.Input [
+                                            attr.placeholder "Weight"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] profileWeight
+                                            ]
+                            ]
+                        div [attr.``class`` "bg-white rounded-2xl shadow p-6"]
+
+                            [
+
+                                h2 [attr.``class`` "text-2xl font-semibold mb-5 text-slate-800"]
+                                    [text "Emergency & Health"]
+
+                                div [attr.``class`` "space-y-4"]
+
+                                    [
+                                        Doc.Input [
+                                            attr.placeholder "Emergency contact"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] emergencyContact
+
+                                        Doc.Input [
+                                            attr.placeholder "Phone number"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                        ] emergencyPhone
+
+                                        Doc.InputArea [
+                                            attr.placeholder "Medical notes"
+                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3 h-32"
+                                        ] medicalNotes
+
+                                        button [
+                                            attr.``class`` "w-full bg-blue-600 hover:bg-blue-700 transition-all text-white rounded-xl px-5 py-3 font-medium shadow-md mt-4"
+
+                                            on.click (fun _ _ ->
+                                                saveProfile()
+                                            )
+                                        ] [
+                                            text "Save Profile"
+                                        ]
+                                    ]
+                            ]
+                    ]
             ]
 
     let navbar = 
@@ -727,6 +905,8 @@ module Client =
 
     [<SPAEntryPoint>]
     let Main () =
+        loadProfile()
+
         let newName = Var.Create ""
 
         let renderInnerPage (currentPage: Var<EndPoint>) =
