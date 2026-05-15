@@ -2,6 +2,7 @@ namespace DUE_FSharp_SPASandbox_2026
 
 open WebSharper
 open WebSharper.JavaScript
+open WebSharper.JavaScript.Dom
 open WebSharper.UI
 open WebSharper.UI.Html
 open WebSharper.UI.Client
@@ -35,6 +36,21 @@ module Client =
         | PendingTasks
         | DoneTasks
 
+    type GalleryAlbum =
+        | AllPhotos
+        | FamilyPhotos
+        | GardenPhotos
+        | BirthdayPhotos
+
+    type GalleryPhoto = {
+        Id: int
+        Title: string
+        Album: string
+        Icon: string
+        ImageData: string
+        UploadedAt: string
+    }
+
     type AppPage =
         | DashboardPage
         | TasksPage
@@ -42,7 +58,7 @@ module Client =
         | ProfilePage
         | SettingsPage
 
-    let careTasks =
+    let careTasks : Var<list<CareTask>> =
         Var.Create [
             { Id = 1; Title = "Morning medication"; Time = "08:00"; Category = "Medication"; IsDone = true }
             { Id = 2; Title = "Blood pressure check"; Time = "10:00"; Category = "Health"; IsDone = false }
@@ -54,6 +70,14 @@ module Client =
     let newTime = Var.Create ""
     let newCategory = Var.Create ""
     let selectedFilter = Var.Create AllTasks
+    let selectedGalleryAlbum = Var.Create AllPhotos
+    let galleryPhotos : Var<list<GalleryPhoto>> = Var.Create []
+    let newPhotoTitle = Var.Create ""
+    let newPhotoAlbum = Var.Create ""
+    let newPhotoImageData = Var.Create ""
+    let selectedFullscreenPhoto : Var<option<GalleryPhoto>> =
+        Var.Create None
+    let galleryStorageKey = "galleryPhotos"
     let selectedAppPage = Var.Create DashboardPage
     let mobileMenuOpen = Var.Create false
     let tasksStorageKey = "careTasks"
@@ -128,7 +152,7 @@ module Client =
         loadValue "emergencyPhone" emergencyPhone
         loadValue "medicalNotes" medicalNotes
 
-    let taskToStorageLine task =
+    let taskToStorageLine (task: CareTask) =
         string task.Id + "§" +
         task.Title + "§" +
         task.Time + "§" +
@@ -174,6 +198,101 @@ module Client =
 
             if loadedTasks.Length > 0 then
                 careTasks.Value <- loadedTasks
+
+    let photoToStorageLine (photo: GalleryPhoto) =
+        string photo.Id + "§" +
+        photo.Title + "§" +
+        photo.Album + "§" +
+        photo.ImageData + "§" +
+        photo.UploadedAt
+
+    let photoFromStorageLine (line: string) =
+        let parts = line.Split('§')
+
+        if parts.Length = 5 then
+
+            match System.Int32.TryParse(parts.[0]) with
+            | true, id ->
+
+                Some {
+                    Id = id
+                    Title = parts.[1]
+                    Album = parts.[2]
+                    Icon = "🖼️"
+                    ImageData = parts.[3]
+                    UploadedAt = parts.[4]
+                }
+
+            | _ ->
+                None
+
+        else
+            None
+
+    let saveGalleryPhotos () =
+
+        let savedText =
+
+            galleryPhotos.Value
+            |> List.map photoToStorageLine
+            |> String.concat "\n"
+
+        JS.Window.LocalStorage.SetItem(galleryStorageKey, savedText)
+
+    let loadGalleryPhotos () =
+
+        let savedText =
+            JS.Window.LocalStorage.GetItem(galleryStorageKey)
+
+        if savedText <> null && savedText <> "" then
+
+            let loadedPhotos =
+
+                savedText.Split('\n')
+                |> Array.choose photoFromStorageLine
+                |> Array.toList
+
+            galleryPhotos.Value <- loadedPhotos
+
+    let albumPlaceholder album =
+        match album with
+        | "Family" -> "👨‍👩‍👧"
+        | "Garden" -> "🌿"
+        | "Birthday" -> "🎂"
+        | _ -> "📷"
+
+    let deleteGalleryPhoto photoId =
+        let updatedPhotos =
+            galleryPhotos.Value
+            |> List.filter (fun photo -> photo.Id <> photoId)
+
+        galleryPhotos.Value <- updatedPhotos
+        saveGalleryPhotos()
+
+    let addGalleryPhoto () =
+        if newPhotoTitle.Value.Trim() <> "" && newPhotoAlbum.Value <> "" then
+
+            let imageData =
+                if newPhotoImageData.Value <> "" then
+                    newPhotoImageData.Value
+                else
+                    albumPlaceholder newPhotoAlbum.Value
+
+            let newPhoto =
+                {
+                    Id = int System.DateTime.Now.Ticks
+                    Title = newPhotoTitle.Value
+                    Album = newPhotoAlbum.Value
+                    Icon = "🖼️"
+                    ImageData = imageData
+                    UploadedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+                }
+
+            galleryPhotos.Value <- galleryPhotos.Value @ [newPhoto]
+            saveGalleryPhotos()
+
+            newPhotoTitle.Value <- ""
+            newPhotoImageData.Value <- ""
 
     let addTask () =
         if newTitle.Value <> "" && newTime.Value <> "" && newCategory.Value <> "" then
@@ -247,25 +366,33 @@ module Client =
 
     let medicationReminderCard title time (statusVar: Var<bool>) =
         Doc.BindView (fun isDone ->
-            div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+            div [attr.``class`` "bg-white rounded-3xl shadow-lg p-6 border border-slate-100 hover:shadow-xl transition-all duration-300"]
                 [
                     div [attr.``class`` "flex justify-between items-start"]
                         [
                             div []
                                 [
-                                    h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
-                                        [text title]
+                                    div [attr.``class`` "text-3xl"]
+                                        [
+                                            text "💊"
+                                        ]
 
-                                    p [attr.``class`` "text-sm text-slate-500 mt-1"]
-                                        [text ("Scheduled time: " + time)]
+                                    div []
+                                        [
+                                            h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
+                                                [text title]
+
+                                            p [attr.``class`` "text-sm text-slate-500 mt-1"]
+                                                [text ("Scheduled time: " + time)]
+                                        ]
                                 ]
 
                             span [
                                 attr.``class`` (
                                     if isDone then
-                                        "text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium"
+                                        "text-xs bg-green-100 text-green-700 px-4 py-2 rounded-full font-semibold shadow-sm"
                                     else
-                                        "text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-medium"
+                                        "text-xs bg-orange-100 text-orange-700 px-4 py-2 rounded-full font-semibold shadow-sm"
                                 )
                             ] [
                                 text (
@@ -300,7 +427,7 @@ module Client =
         ) statusVar.View
 
 
-    let taskCard task =
+    let taskCard (task: CareTask) =
        div [
            attr.``class`` "bg-white p-5 rounded-2xl shadow-md border border-slate-100 cursor-pointer hover:shadow-x1 transition-all duration-200"
            on.click (fun _ _ ->
@@ -421,26 +548,43 @@ module Client =
 
             div [attr.``class`` "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"]
                 [
-                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                div [attr.``class`` "bg-white p-5 rounded-2xl shadow text-center border border-slate-100"] 
                     [
-                        p [attr.``class`` "text-slate-500 text-sm"] 
+                        div [attr.``class`` "text-4xl mb-3"]
+                            [
+                                text "📋"
+                            ]
+                        p [attr.``class`` "text-slate-500 text-sm font-medium"] 
                             [text "All tasks"]
+
                         h3 [attr.``class`` "text-3xl font-bold mt-2 text-slate-800"]
                             [text (string allCount)]
                     ]
 
-                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                div [attr.``class`` "bg-white p-5 rounded-2xl shadow text-center border border-slate-100"] 
                     [
-                        p [attr.``class`` "text-slate-500 text-sm"] 
+                        div [attr.``class`` "text-4xl mb-3"]
+                            [
+                                text "⏳"
+                            ]
+
+                        p [attr.``class`` "text-slate-500 text-sm font-medium"] 
                             [text "Pending"]
+                        
                         h3 [attr.``class`` "text-3xl font-bold mt-2 text-orange-500"]
                             [text (string pendingCount)]
                     ]
 
-                div [attr.``class`` "bg-white p-4 rounded-2xl shadow text-center"] 
+                div [attr.``class`` "bg-white p-5 rounded-2xl shadow text-center border border-slate-100"] 
                     [
-                        p [attr.``class`` "text-slate-500 text-sm"] 
+                        div [attr.``class`` "text-4xl mb-3"]
+                            [
+                                text "✅"
+                            ]
+
+                        p [attr.``class`` "text-slate-500 text-sm font-medium"] 
                             [text "Done"]
+                        
                         h3 [attr.``class`` "text-3xl font-bold mt-2 text-green-600"]
                             [text (string doneCount)]
                     ]
@@ -452,40 +596,63 @@ module Client =
         | DashboardPage -> 
             div [] [
                 h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
-                    [text "Dashboad Page"]
+                    [text "Today's Overview"]
             (*
                 p [attr.``class`` "text-slate-600 mb-6"]
                     [text "Dashboard Page"]
 *)
-                div [attr.``class`` "grid gap-4 md:grid-cols-3"]
+                div [attr.``class`` "grid gap-4 md:grid-cols-4"]
                     [
-                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                        div [attr.``class`` "bg-white p-6 rounded-2xl shadow border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"]
                             [
-                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
-                                    [text "Today's Status"]
+                                div [attr.``class`` "flex items-center gap-3 mb-4"]
+                                    [
+                                        div [attr.``class`` "text-4xl"] 
+                                            [
+                                                text "✅"
+                                            ]
+                                            
+                                        h2 [attr.``class`` "text-xl font-semibold text-slate-800"]
+                                            [text "Today's Status"]
+                                    ]
 
-                                p [attr.``class`` "text-green-700 font-medium"]
+                                p [attr.``class`` "text-green-700 font-medium text-lg"]
                                     [text "Everything is under control ✔"]
                             ]
                         
-                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                        div [attr.``class`` "bg-white p-6 rounded-2xl shadow border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"]
                             [
-                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
-                                    [text "Next Appointment"]
+                                div [attr.``class`` "flex items-center gap-3 mb-4"]
+                                    [
+                                        div [attr.``class`` "text-4xl"]
+                                            [
+                                                text "📅"
+                                            ]
 
-                                p [attr.``class`` "text-slate-600"]
+                                        h2 [attr.``class`` "text-xl font-semibold text-slate-800"]
+                                            [text "Next Appointment"]
+                                    ]
+
+                                p [attr.``class`` "text-slate-700 font-medium text-lg"]
                                     [text "Doctor appointment at 14:00"]
                             ]
 
-                        div [attr.``class`` "bg-white p-5 rounded-2xl shadow"]
+                        div [attr.``class`` "bg-white p-6 rounded-2xl shadow border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"]
                             [
-                                h2 [attr.``class`` "text-xl font-semibold mb-2"]
-                                    [text "Medication"]
+                                div [attr.``class`` "flex items-center gap-3 mb-4"]
+                                    [
+                                        div [attr.``class`` "text-4xl"]
+                                            [
+                                                text "💊"
+                                            ]
 
-                                p [attr.``class`` "text-slate-600"]
+                                        h2 [attr.``class`` "text-xl font-semibold text-slate-800"]
+                                            [text "Medication"]
+                                    ]
+                                p [attr.``class`` "text-slate-700 font-medium text-lg"]
                                     [text "Morning medication: completed"]
 
-                                p [attr.``class`` "text-red-600 font-medium"]
+                                p [attr.``class`` "text-red-600 font-medium mt-2"]
                                     [text "Evening medication: pending"]
                             ]
 
@@ -494,6 +661,68 @@ module Client =
                     [
                         summaryCards
                     ]
+
+                div [attr.``class`` "mt-8 bg-white rounded-3xl shadow-lg p-6 border border-slate-100"]
+                    [
+                        h2 [attr.``class`` "text-2xl font-bold text-slate-800 mb-4"]
+                            [
+                                text "Family Updates"
+                            ]
+
+                        Doc.BindView (fun photos ->
+
+                            if List.isEmpty photos then
+
+                                div [attr.``class`` "text-slate-500"]
+                                    [
+                                        text "No family updates available."
+                                    ]
+
+                            else
+
+                                let latestPhoto =
+                                    photos |> List.last
+
+                                div [attr.``class`` "space-y-3"]
+                                    [
+                                        div [attr.``class`` "flex items-center gap-3"]
+                                            [
+                                                div [attr.``class`` "text-3xl"]
+                                                    [
+                                                        text "📸"
+                                                    ]
+
+                                                div []
+                                                    [
+                                                        p [attr.``class`` "font-semibold text-slate-800"]
+                                                            [
+                                                                text ("New photo added to " + latestPhoto.Album + " album")
+                                                            ]
+
+                                                        p [attr.``class`` "text-sm text-slate-500"]
+                                                            [
+                                                                text latestPhoto.UploadedAt
+                                                            ]
+                                                    ]
+                                            ]
+
+                                        div [attr.``class`` "flex items-center gap-3"]
+                                            [
+                                                div [attr.``class`` "text-3xl"]
+                                                    [
+                                                        text "🖼️"
+                                                    ]
+
+                                                p [attr.``class`` "text-slate-700"]
+                                                    [
+                                                        text ("Total uploaded photos: " + string photos.Length)
+                                                    ]
+                                            ]
+                                    ]
+
+                        ) galleryPhotos.View
+                    ]
+
                 Doc.BindView (fun remindersEnabled ->
 
                     if remindersEnabled then
@@ -633,58 +862,371 @@ module Client =
                             ]
                     ]
             ]
-
         | GalleryPage ->
             div [] [
                 h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
                     [text "Family Gallery"]
             
                 p [attr.``class`` "text-slate-600 mb-6"]
-                    [text "Shared family memories and important photo update"]
+                    [text "Shared family memories and important photo updates"]
 
-                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
+                div [attr.``class`` "bg-white rounded-3xl shadow-lg p-6 mb-6 border border-slate-100"]
+
                     [
-                        div [attr.``class`` "h-40 rounded-xl bg-blue-50 flex items-center justify-center text-6xl mb-4"]
-                            [text "📷"]
+
+                        h2 [attr.``class`` "text-2xl font-semibold text-slate-800 mb-4"]
+                            [
+                                text "Upload New Photo"
+                            ]
+
+                        div [attr.``class`` "grid gap-4 md:grid-cols-3"]
+
+                            [
+
+                                Doc.Input [
+
+                                    attr.placeholder "Photo title"
+                                    attr.``class`` "border border-slate-200 rounded-xl px-4 py-3"
+
+                                ] newPhotoTitle
+
+
+                                select [
+
+                                    attr.``class`` "border border-slate-200 rounded-xl px-4 py-3 bg-white"
+
+                                    attr.value newPhotoAlbum.Value
+
+                                    on.change (fun el _ ->
+                                        newPhotoAlbum.Value <- el?value
+                                    )
+
+                                ] [
+                                    option [
+                                        attr.value ""
+                                        attr.selected "selected"
+                                        attr.disabled "disabled"
+                                    ] [
+                                        text "Select album"
+                                    ]
+
+                                    option [attr.value "Family"] [text "Family"]
+                                    option [attr.value "Garden"] [text "Garden"]
+                                    option [attr.value "Birthday"] [text "Birthday"]
+
+                                ]
+
+
+                                label [
+
+                                    attr.``class`` "bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-5 py-3 font-medium shadow-md text-center cursor-pointer"
+
+                                ]
+
+                                    [
+
+                                        text "Choose Image"
+
+                                        input [
+
+                                            attr.``type`` "file"
+                                            attr.accept "image/*"
+                                            attr.``class`` "hidden"
+
+                                            on.change (fun el _ -> 
+                                            
+                                                let files = el?files
+                                                if files?length > 0 then
+                                                    let file = files?item(0)
+                                                    let reader = JS.Eval("new FileReader()")
+                                                    reader?onload <- (fun _ ->
+                                                    
+                                                        newPhotoImageData.Value <- string reader?result
+                                                    )
+                                                    reader?readAsDataURL file
+                                            )
+
+                                        ] []
+                                    ]
+                                button [
+                                    attr.``class`` "bg-green-600 hover:bg-green-700 text-white rounded-xl px-5 py-3 font-medium shadow-md text-center"
+
+                                    on.click (fun _ _ ->
+                                        addGalleryPhoto()
+                                    )
+                                ] [
+                                    text "Upload Photo"
+                                ]
+                            ]
+                    ]
+
+                div [attr.``class`` "flex flex-wrap gap-3 mb-6"]
+                    [
+                        button [
+                            attr.``class`` (
+                                if selectedGalleryAlbum.Value = AllPhotos then
+                                    "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow scale-105 transition-all"
+                                else 
+                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all"
+                            )
+
+                            on.click (fun _ _ ->
+                                selectedGalleryAlbum.Value <- AllPhotos
+                            )
+                        ] [
+                            text "All"
+                        ]
+
+                        button [
+                            attr.``class`` (
+                                if selectedGalleryAlbum.Value = FamilyPhotos then
+                                    "px-4 py-2 rounded-xl bg-pink-500 text-white font-medium shadow"
+                                else   
+                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
+                            )
+                            on.click (fun _ _ ->
+                                selectedGalleryAlbum.Value <- FamilyPhotos
+                            )
+                        ] [
+                            text "Family"
+                        ]
+
+                        button [
+                            attr.``class`` (
+                                if selectedGalleryAlbum.Value = GardenPhotos then
+                                    "px-4 py-2 rounded-xl bg-green-600 text-white font-medium shadow"
+                                else
+                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
+                            )
+                            on.click (fun _ _ ->
+                                selectedGalleryAlbum.Value <- GardenPhotos
+                            )
+                        ] [
+                            text "Garden"
+                        ]
+
+                        button [
+                            attr.``class`` (
+                                if selectedGalleryAlbum.Value = BirthdayPhotos then
+                                    "px-4 py-2 rounded-xl bg-orange-500 text-white font-medium shadow"
+                                else
+                                     "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
+                            )
+                            on.click (fun _ _ ->
+                                selectedGalleryAlbum.Value <- BirthdayPhotos
+                            )
+                        ] [
+                            text "Birthday"
+                        ]
+                    ]
+
+                Doc.BindView (fun selectedAlbum ->
+
+                        let filteredPhotos =
+
+                            galleryPhotos.Value
+                            |> List.filter (fun photo ->
+
+                                match selectedAlbum with
+                                | AllPhotos -> true
+                                | FamilyPhotos -> photo.Album = "Family"
+                                | GardenPhotos -> photo.Album = "Garden"
+                                | BirthdayPhotos -> photo.Album = "Birthday"
+                            )
+
+                        if not (List.isEmpty filteredPhotos) then
+
+                            div [attr.``class`` "grid gap-6 md:grid-cols-3"]
+
+                                [
+
+                                    yield!
+
+                                        filteredPhotos
+                                        |> List.map (fun photo ->
+
+                                            div [attr.``class`` "bg-white rounded-3xl shadow-lg p-5 border border-slate-100 hover:shadow-xl transition-all duration-300"]
+
+                                                [
+
+                                                    div [
+
+                                                        attr.``class`` "h-48 rounded-2xl overflow-hidden bg-slate-100 mb-4 cursor-pointer"
+
+                                                        on.click (fun _ _ ->
+                                                            selectedFullscreenPhoto.Value <- Some photo
+                                                        )
+
+                                                    ]
+
+                                                        [
+
+                                                            if photo.ImageData.StartsWith("data:image") then
+
+                                                                img [
+
+                                                                    attr.src photo.ImageData
+                                                                    attr.``class`` "w-full h-full object-cover"
+
+                                                                ] []
+
+                                                            else
+
+                                                                div [
+
+                                                                    attr.``class`` "w-full h-full flex items-center justify-center text-6xl"
+
+                                                                ] [
+
+                                                                    text photo.ImageData
+                                                                ]
+                                                        ]
+
+                                                    h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+
+                                                        [
+                                                            text photo.Title
+                                                        ]
+
+                                                    p [attr.``class`` "text-sm text-slate-500 mb-3"]
+                                                        [
+                                                            text ("Uploaded: " + photo.UploadedAt)
+                                                        ]
+
+                                                    div [attr.``class`` "flex items-center justify-between gap-3"]
+                                                        [
+                                                            span [
+
+                                                                attr.``class`` "text-sm bg-blue-100 text-blue-700 px-4 py-2 rounded-full font-semibold"
+
+                                                            ] [
+
+                                                                text photo.Album
+                                                            ]
+
+                                                            button [
+                                                                attr.``class`` "text-sm bg-red-100 text-red-700 px-4 py-2 rounded-full font-semibold hover:bg-red-200 transition-all"
+
+                                                                on.click (fun _ ev ->
+                                                                    ev.StopPropagation()
+                                                                    deleteGalleryPhoto photo.Id
+                                                                )
+                                                            ] [
+                                                                text "Delete"
+                                                            ]
+                                                        ]
+                                                ]
+                                        )
+                                ]
+
+                        else
+
+                            div [attr.``class`` "grid gap-6 md:grid-cols-3"]
+                                [
+                            
+                                    if selectedAlbum = AllPhotos || selectedAlbum = FamilyPhotos then
+                                        div [attr.``class`` "bg-white rounded-3xl shadow-lg p-5 border border-slate-100 hover:shadow-xl transition-all duration-300"]
+                                            [
+                                                div [attr.``class`` "h-48 rounded-2xl bg-blue-50 flex items-center justify-center text-6xl mb-4"]
+                                                    [text "📷"]
+
+                                                h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                                                    [text "Family photo"]
+
+                                                p [attr.``class`` "text-slate-600 mb-4"]
+                                                    [text "A new picture was uploaded by the family."]
+
+                                                span [attr.``class`` "text-sm bg-blue-100 text-blue-700 px-4 py-2 rounded-full font-semibold"]
+                                                    [text "Family"]
+                                            ]
+
+                                    if selectedAlbum = AllPhotos || selectedAlbum = GardenPhotos then
+                                        div [attr.``class`` "bg-white rounded-3xl shadow-lg p-5 border border-slate-100 hover:shadow-xl transition-all duration-300"]
+                                            [
+                                                div [attr.``class`` "h-48 rounded-2xl bg-green-50 flex items-center justify-center text-6xl mb-4"]
+                                                    [text "🌿"]
+
+                                                h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                                                    [text "Garden walk"]
+
+                                                p [attr.``class`` "text-slate-600 mb-4"]
+                                                    [text "A calm outdoor memory from a family visit."]
+
+                                                span [attr.``class`` "text-sm bg-green-100 text-green-700 px-4 py-2 rounded-full font-semibold"]
+                                                    [text "Garden"]
+                                            ]
+
+                                    if selectedAlbum = AllPhotos || selectedAlbum = BirthdayPhotos then
+                                        div [attr.``class`` "bg-white rounded-3xl shadow-lg p-5 border border-slate-100 hover:shadow-xl transition-all duration-300"]
+                                            [
+                                                div [attr.``class`` "h-48 rounded-2xl bg-pink-50 flex items-center justify-center text-6xl mb-4"]
+                                                    [text "🎂"]
+
+                                                h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
+                                                    [text "Birthday memory"]
+
+                                                p [attr.``class`` "text-slate-600 mb-4"]
+                                                    [text "A shared family celebration photo."]
+
+                                                span [attr.``class`` "text-sm bg-pink-100 text-pink-700 px-4 py-2 rounded-full font-semibold"]
+                                                    [text "Birthday"]
+                                            ]
+                                ]
+
+                        ) selectedGalleryAlbum.View
+
+                Doc.BindView (fun selectedPhoto ->
+
+                    match selectedPhoto with
+                    | Some photo ->
+
+                        div [
+                            attr.``class`` "fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
                         
-                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
-                            [text "Family photo"]
+                            on.click (fun _ _ ->
+                                selectedFullscreenPhoto.Value <- None
+                            )
 
-                        p [attr.``class`` "text-slate-600 mb-3"]
-                            [text "A new picture was uploaded by the family"]
+                        ] [
+                            div [
 
-                        span [attr.``class`` "text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium"]
-                            [text "New"]
+                                attr.``class`` "bg-white rounded-3xl p-4 max-w-4xl w-full relative"
+
+                                on.click (fun _ ev ->
+                                    ev.StopPropagation()
+                                )
+
+                            ]
+                                [
+                                    button [
+                                        attr.``class`` "absolute top-4 right-4 bg-red-100 text-red-700 rounded-full px-4 py-2 font-bold hover:bg-red-200"
+
+                                        on.click (fun _ _ ->
+                                            selectedFullscreenPhoto.Value <- None
+                                        )
+                                    ] [
+                                        text "X"
+                                    ]
+
+                                    img [
+                                        attr.src photo.ImageData
+                                        attr.``class`` "w-full max-h-[75vh] object-contain rounded-2xl"
+                                    ] []
+
+                                    h2 [attr.``class`` "text-2xl font-bold text-slate-800 mt-4"]
+                                        [text photo.Title]
+
+                                    p [attr.``class`` "text-slate-500 mt-1"]
+                                        [text photo.Album]
+                                ]
+                        ]
+
+                    | None ->
+                        Doc.Empty
+
+                ) selectedFullscreenPhoto.View
+
                     ]
-                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
-                    [
-                        div [attr.``class`` "h-40 rounded-xl bg-green-50 flex items-center justify-center text-6xl mb-4"]
-                            [text "🌿"]
-
-                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
-                            [text "Garden walk"]
-
-                        p [attr.``class`` "text-slate-600 mb-3"]
-                            [text "A calm outdoor memory from a family visit."]
-
-                        span [attr.``class`` "text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium"]
-                            [text "Recent"]
-                    ]
-                div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100"]
-                    [
-                        div [attr.``class`` "h-40 rounded-xl bg-pink-50 flex items-center justify-center text-6xl mb-4"]
-                            [text "🎂"]
-
-                        h2 [attr.``class`` "text-xl font-semibold text-slate-800 mb-2"]
-                            [text "Birthday memory"]
-
-                        p [attr.``class`` "text-slate-600 mb-3"]
-                            [text "A shared family celebration photo."]
-
-                        span [attr.``class`` "text-sm bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium"]
-                            [text "Memory"]
-                    ]
-            ]
 
         | ProfilePage ->
             div [] [
@@ -1274,6 +1816,7 @@ module Client =
         loadProfile()
         loadTasks()
         loadSettings()
+        loadGalleryPhotos()
 
         let newName = Var.Create ""
 
