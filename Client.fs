@@ -92,11 +92,16 @@ module Client =
     let profileHeight = Var.Create ""
     let profileWeight = Var.Create ""
     let emergencyContact = Var.Create ""
+    let emergencyRelationship = Var.Create ""
     let emergencyPhone = Var.Create ""
+    let medicationAllergies = Var.Create ""
     let medicalNotes = Var.Create ""
     let morningMedicationDone = Var.Create true
     let noonMedicationDone = Var.Create false
     let eveningMedicationDone = Var.Create false
+    let morningMedicationStock = Var.Create 12
+    let noonMedicationStock = Var.Create 5
+    let eveningMedicationStock = Var.Create 2
 
     let saveSettings () =
         let savedText =
@@ -133,6 +138,7 @@ module Client =
         JS.Window.LocalStorage.SetItem("profileWeight", profileWeight.Value)
         JS.Window.LocalStorage.SetItem("emergencyContact", emergencyContact.Value)
         JS.Window.LocalStorage.SetItem("emergencyPhone", emergencyPhone.Value)
+        JS.Window.LocalStorage.SetItem("medicationAllergies", medicationAllergies.Value)
         JS.Window.LocalStorage.SetItem("medicalNotes", medicalNotes.Value)
 
         JS.Alert "Profile saved successfully."
@@ -150,6 +156,7 @@ module Client =
         loadValue "profileWeight" profileWeight
         loadValue "emergencyContact" emergencyContact
         loadValue "emergencyPhone" emergencyPhone
+        loadValue "medicationAllergies" medicationAllergies
         loadValue "medicalNotes" medicalNotes
 
     let taskToStorageLine (task: CareTask) =
@@ -323,38 +330,66 @@ module Client =
 
     let settingToggle title description (settingVar: Var<bool>) =
         Doc.BindView (fun isEnabled ->
-
-            div [attr.``class`` "bg-white rounded-2xl shadow p-5 border border-slate-100 flex items-center justify-between gap-4"]
-                [
-                    div []
-                        [
-                            h3 [attr.``class`` "text-lg font-semibold text-slate-800"]
-                                [text title]
-
-                            p [attr.``class`` "text-sm text-slate-500 mt-1"]
-                                [text description]
-                        ]
-
-                    button [
-                        attr.``class`` (
-                            if settingVar.Value then
-                                "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow"
-                            else
-                                "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
-                        )
-
-                        on.click (fun _ _ ->
-                            settingVar.Value <- not settingVar.Value
-                            saveSettings()
-                        )
-                    ] [
-                        if settingVar.Value then
-                            text "On"
+            Doc.BindView (fun isHighContrast ->
+                div [
+                    attr.``class`` (
+                        if isHighContrast then
+                            "bg-slate-800 rounded-2xl shadow p-5 border border-slate-700 flex items-center justify-between gap-4 text-white"
                         else
-                            text "Off"
+                            "bg-white rounded-2xl shadow p-5 border border-slate-100 flex items-center justify-between gap-4"
+                    )
+                ]                    [
+                        div []
+                            [
+                                h3 [
+                                    attr.``class`` (
+                                        if isHighContrast then
+                                            "text-lg font-semibold text-white"
+                                        else
+                                            "text-lg font-semibold text-slate-800"
+                                    )
+                                ]     [text title]
+
+                                p [
+                                    attr.``class`` (
+                                        if isHighContrast then
+                                            "text-sm text-slate-300 mt-1"
+                                        else
+                                            "text-sm text-slate-500 mt-1"
+                                    )
+                                ]
+                                    [text description]
+                            ]
+
+                        button [
+                            attr.``class`` (
+                                if settingVar.Value then
+                                    "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow"
+                                else
+                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
+                            )
+
+                            on.click (fun _ _ ->
+                                settingVar.Value <- not settingVar.Value
+                                saveSettings()
+                            )
+                        ] [
+                            if settingVar.Value then
+                                text "On"
+                            else
+                                text "Off"
+                        ]
                     ]
-                ]
-            ) settingVar.View
+                ) settingVar.View
+            ) highContrastMode.View
+
+    let medicationStockText stock =
+        if stock <= 2 then
+            "Low stock: " + string stock + " pills left"
+        elif stock <= 5 then
+            "Running low: " + string stock + " pills left"
+        else
+            "Stock OK: " + string stock + " pills left"
 
     let categoryClass category =
         match category with
@@ -729,6 +764,84 @@ module Client =
 
                         div [attr.``class`` "mt-8"]
                             [
+                                div [attr.``class`` "mb-6 bg-white rounded-3xl shadow-lg p-6 border border-slate-100"]
+                                    [
+                                        h2 [attr.``class`` "text-2xl font-bold text-slate-800 mb-4"]
+                                            [
+                                                text "Medication Stock Warnings"
+                                            ]
+
+                                        div [attr.``class`` "grid gap-4 md:grid-cols-3"]
+
+                                            [
+                                                div [
+                                                    attr.``class`` (
+                                                        if morningMedicationStock.Value <= 2 then
+                                                            "rounded-2xl p-5 bg-red-50 border border-red-200"
+                                                        elif morningMedicationStock.Value <= 5 then
+                                                            "rounded-2xl p-5 bg-orange-50 border border-orange-200"
+                                                        else
+                                                            "rounded-2xl p-5 bg-green-50 border border-green-200"
+                                                    )
+                                                ]
+                                                    [
+                                                        h3 [attr.``class`` "font-bold text-lg mb-2"]
+                                                            [
+                                                                text "Morning Medication"
+                                                            ]
+
+                                                        p [attr.``class`` "text-slate-700"]
+                                                            [
+                                                                text (medicationStockText morningMedicationStock.Value)
+                                                            ]
+                                                    ]
+
+                                                div [
+                                                    attr.``class`` (
+                                                        if noonMedicationStock.Value <= 2 then
+                                                            "rounded-2xl p-5 bg-red-50 border border-red-200"
+                                                        elif noonMedicationStock.Value <= 5 then
+                                                            "rounded-2xl p-5 bg-orange-50 border border-orange-200"
+                                                        else
+                                                            "rounded-2xl p-5 bg-green-50 border border-green-200"
+                                                    )
+                                                ]
+                                                    [
+                                                        h3 [attr.``class`` "font-bold text-lg mb-2"]
+                                                            [
+                                                                text "Noon Medication"
+                                                            ]
+
+                                                        p [attr.``class`` "text-slate-700"]
+                                                            [
+                                                                text (medicationStockText noonMedicationStock.Value)
+                                                            ]
+                                                    ]
+
+                                                div [
+                                                    attr.``class`` (
+                                                        if eveningMedicationStock.Value <= 2 then
+                                                            "rounded-2xl p-5 bg-red-50 border border-red-200"
+                                                        elif eveningMedicationStock.Value <= 5 then
+                                                            "rounded-2xl p-5 bg-orange-50 border border-orange-200"
+                                                        else
+                                                            "rounded-2xl p-5 bg-green-50 border border-green-200"
+                                                    )
+                                                ]
+                                                    [
+                                                        h3 [attr.``class`` "font-bold text-lg mb-2"]
+                                                            [
+                                                                text "Evening Medication"
+                                                            ]
+
+                                                        p [attr.``class`` "text-slate-700"]
+                                                            [
+                                                                text (medicationStockText eveningMedicationStock.Value)
+                                                            ]
+                                                    ]
+                                            ]
+                                    ]
+
                                 h2 [attr.``class`` "text-2xl font-bold text-slate-800 mb-4"]
                                     [text "Medication Reminders"]
 
@@ -960,65 +1073,68 @@ module Client =
                             ]
                     ]
 
-                div [attr.``class`` "flex flex-wrap gap-3 mb-6"]
-                    [
-                        button [
-                            attr.``class`` (
-                                if selectedGalleryAlbum.Value = AllPhotos then
-                                    "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow scale-105 transition-all"
-                                else 
-                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all"
-                            )
+                Doc.BindView (fun selectedAlbum ->
 
-                            on.click (fun _ _ ->
-                                selectedGalleryAlbum.Value <- AllPhotos
-                            )
-                        ] [
-                            text "All"
-                        ]
+                    div [attr.``class`` "flex flex-wrap gap-3 mb-6"]
+                        [
+                            button [
+                                attr.``class`` (
+                                    if selectedGalleryAlbum.Value = AllPhotos then
+                                        "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow scale-105 transition-all duration-200"
+                                    else 
+                                        "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all duration-200"
+                                )
 
-                        button [
-                            attr.``class`` (
-                                if selectedGalleryAlbum.Value = FamilyPhotos then
-                                    "px-4 py-2 rounded-xl bg-pink-500 text-white font-medium shadow"
-                                else   
-                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
-                            )
-                            on.click (fun _ _ ->
-                                selectedGalleryAlbum.Value <- FamilyPhotos
-                            )
-                        ] [
-                            text "Family"
-                        ]
+                                on.click (fun _ _ ->
+                                    selectedGalleryAlbum.Value <- AllPhotos
+                                )
+                            ] [
+                                text "All"
+                            ]
 
-                        button [
-                            attr.``class`` (
-                                if selectedGalleryAlbum.Value = GardenPhotos then
-                                    "px-4 py-2 rounded-xl bg-green-600 text-white font-medium shadow"
-                                else
-                                    "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
-                            )
-                            on.click (fun _ _ ->
-                                selectedGalleryAlbum.Value <- GardenPhotos
-                            )
-                        ] [
-                            text "Garden"
-                        ]
+                            button [
+                                attr.``class`` (
+                                    if selectedGalleryAlbum.Value = FamilyPhotos then
+                                        "px-4 py-2 rounded-xl bg-pink-500 text-white font-medium shadow-lg scale-105 transition-all duration-200"
+                                         else   
+                                        "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all duration-200"
+                                )
+                                on.click (fun _ _ ->
+                                    selectedGalleryAlbum.Value <- FamilyPhotos
+                                )
+                            ] [
+                                text "Family"
+                            ]
 
-                        button [
-                            attr.``class`` (
-                                if selectedGalleryAlbum.Value = BirthdayPhotos then
-                                    "px-4 py-2 rounded-xl bg-orange-500 text-white font-medium shadow"
-                                else
-                                     "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
-                            )
-                            on.click (fun _ _ ->
-                                selectedGalleryAlbum.Value <- BirthdayPhotos
-                            )
-                        ] [
-                            text "Birthday"
+                            button [
+                                attr.``class`` (
+                                    if selectedGalleryAlbum.Value = GardenPhotos then
+                                        "px-4 py-2 rounded-xl bg-green-600 text-white font-medium shadow-lg scale-105 transition-all duration-200"
+                                    else
+                                        "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all duration-200"
+                                    )
+                                on.click (fun _ _ ->
+                                    selectedGalleryAlbum.Value <- GardenPhotos
+                                )
+                            ] [
+                                text "Garden"
+                            ]
+
+                            button [
+                                attr.``class`` (
+                                    if selectedGalleryAlbum.Value = BirthdayPhotos then
+                                        "px-4 py-2 rounded-xl bg-orange-500 text-white font-medium shadow-lg scale-105 transition-all duration-200"
+                                    else
+                                         "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium hover:scale-105 transition-all duration-200"
+                                    )
+                                on.click (fun _ _ ->
+                                    selectedGalleryAlbum.Value <- BirthdayPhotos
+                                )
+                            ] [
+                                text "Birthday"
+                            ]
                         ]
-                    ]
+                    ) selectedGalleryAlbum.View
 
                 Doc.BindView (fun selectedAlbum ->
 
@@ -1236,13 +1352,101 @@ module Client =
                 p [attr.``class`` "text-slate-600 mb-6"]
                     [text "Important personal and health related information"]
 
+                div [attr.``class`` "bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl shadow-xl p-6 mb-6 text-white"]
+                    [
+                        div [attr.``class`` "flex flex-col md:flex-row md:items-center gap-5"]
+
+                            [
+                                div [attr.``class`` "w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-4xl font-bold border-4 border-white/30"]
+                                    [
+                                        Doc.BindView (fun (name: string) ->
+
+                                            let cleanName =
+                                                name.Trim()
+
+                                            let initials =
+                                                if cleanName = "" then
+                                                    "👤"
+                                                else
+                                                    cleanName.Substring(0, 1).ToUpper()
+
+                                            text initials
+
+                                        ) profileName.View
+                                    ]
+                                div [attr.``class`` "flex-1"]
+                                    [
+                                        h2 [attr.``class`` "text-3xl font-bold"]
+                                            [
+                                                Doc.BindView (fun (name: string) ->
+
+                                                    if name.Trim() = "" then
+                                                        text "Senior Profile"
+                                                    else
+                                                        text name
+
+                                                ) profileName.View
+                                            ]
+                                        p [attr.``class`` "text-blue-100 mt-2 text-lg"]
+                                            [
+                                                text "Personal health and emergency information"
+                                            ]
+
+                                        div [attr.``class`` "flex flex-wrap gap-3 mt-4"]
+
+                                            [
+                                                div [attr.``class`` "bg-white/20 px-4 py-2 rounded-xl text-sm font-medium"]
+                                                    [
+                                                        Doc.BindView (fun (birthDate: string) ->
+
+                                                            let currentYear =
+                                                                System.DateTime.Now.Year
+
+                                                            let ageText =
+
+                                                                if birthDate.Length >= 4 then
+
+                                                                    let birthYear =
+                                                                        birthDate.Substring(0, 4)
+
+                                                                    match System.Int32.TryParse(birthYear: string) with
+                                                                    | true, year ->
+                                                                        string (currentYear - year) + " years old"
+
+                                                                    | _ ->
+                                                                        "Age unknown"
+
+                                                                else
+                                                                    "Age unknown"
+
+                                                            text ageText
+
+                                                        ) profileBirthDate.View
+                                                    ]
+                                                div [attr.``class`` "bg-white/20 px-4 py-2 rounded-xl text-sm font-medium"]
+                                                    [
+                                                        text "Emergency Ready"
+                                                    ]
+                                            ]
+                                    ]
+                            ]
+                    ]
+
+
                 div [attr.``class`` "grid gap-6 md:grid-cols-2"]
 
                     [
-                        div [attr.``class`` "bg-white rounded-2xl shadow p-6"]
+                        div [attr.``class`` "bg-white rounded-2xl shadow p-6 border border-slate-100"]
                             [
-                                h2 [attr.``class`` "text-2xl font-semibold mb-5 text-slate-800"]
-                                    [text "Personal Information"]
+                                h2 [attr.``class`` "text-2xl font-semibold mb-5 text-slate-800 flex items-center gap-3"]
+                                         [
+                                            span [attr.``class`` "w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl"]
+                                                [
+                                                    text "👤"
+                                                ]
+                                    
+                                            text "Personal Information"
+                                         ]
 
                                 div [attr.``class`` "space-y-4"]
                                     [
@@ -1286,37 +1490,88 @@ module Client =
 
                                             ]
                                     
+                                        div [attr.``class`` "relative"]
+                                            [
+                                                Doc.Input [
+                                                    attr.placeholder "Height"
+                                                    attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3 pr-14"
+                                                ] profileHeight
 
-                                        Doc.Input [
-                                            attr.placeholder "Height"
-                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
-                                        ] profileHeight
+                                                span [attr.``class`` "absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium"]
+                                                    [
+                                                        text "cm"
+                                                    ]
+                                            ]
+            
+                                        div [attr.``class`` "relative"]
+                                            [
+                                                Doc.Input [
+                                                    attr.placeholder "Weight"
+                                                    attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                                ] profileWeight
 
-                                        Doc.Input [
-                                            attr.placeholder "Weight"
-                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
-                                        ] profileWeight
+                                                span [attr.``class`` "absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium"]
+                                                    [
+                                                        text "kg"
+                                                    ]
+                                            ]
+
                                             ]
                             ]
-                        div [attr.``class`` "bg-white rounded-2xl shadow p-6"]
+                        div [attr.``class`` "bg-white rounded-3xl shadow-lg p-6 border border-slate-100"]
 
                             [
 
-                                h2 [attr.``class`` "text-2xl font-semibold mb-5 text-slate-800"]
-                                    [text "Emergency & Health"]
+                                h2 [attr.``class`` "text-2xl font-bold mb-5 text-slate-800 flex items-center gap-3"]
+                                    [
+                                        span [attr.``class`` "text-3xl"]
+                                            [
+                                                text "🩺"
+                                            ]
+
+                                        text "Emergency & Health"]
 
                                 div [attr.``class`` "space-y-4"]
 
                                     [
-                                        Doc.Input [
-                                            attr.placeholder "Emergency contact"
-                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
-                                        ] emergencyContact
+                                        div [attr.``class`` "bg-blue-50 border border-blue-100 rounded-2xl p-4"]
+                                            [
+                                                p [attr.``class`` "text-sm font-semibold text-blue-700 mb-2"]
+                                                    [
+                                                        text "Emergency Contact"
+                                                    ]
 
-                                        Doc.Input [
-                                            attr.placeholder "Phone number"
-                                            attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
-                                        ] emergencyPhone
+                                                Doc.Input [
+                                                    attr.placeholder "Emergency contact"
+                                                    attr.``class`` "w-full border border-slate-200 rounded-xl px-4 py-3"
+                                                ] emergencyContact
+                                            ]
+
+                                        div [attr.``class`` "bg-green-50 border border-green-100 rounded-2xl p-4"]
+                                            [
+                                                p [attr.``class`` "text-sm font-semibold text-green-700 mb-2"]
+                                                    [
+                                                        text "Emergency Phone"
+                                                    ]
+
+                                                div [attr.``class`` "relative"]
+                                                    [
+                                                        Doc.Input [
+                                                            attr.placeholder "+36..."
+                                                            attr.``class`` "w-full bg-white border border-green-100 rounded-xl px-4 py-3 pl-12"
+                                                        ] emergencyPhone
+
+                                                        span [attr.``class`` "absolute left-4 top-1/2 -translate-y-1/2 text-xl"]
+                                                            [
+                                                                text "📞"
+                                                            ]
+                                                    ]
+                                            ]
+
+                                        Doc.InputArea [
+                                            attr.placeholder "Medication allergies, e.g. Penicillin, Aspirin"
+                                            attr.``class`` "w-full border border-red-100 bg-red-50 rounded-xl px-4 py-3 h-24 text-slate-700"
+                                        ] medicationAllergies
 
                                         Doc.InputArea [
                                             attr.placeholder "Medical notes"
@@ -1373,10 +1628,32 @@ module Client =
                     ]
             ]
 
-    let navbar = 
-        nav [attr.``class`` "bg-white shadow-md"]
-            [
+    let navButton targetPage label =
+        Doc.BindView (fun currentPage ->
 
+            button [
+                attr.``class`` (navButtonClass currentPage targetPage)
+
+                on.click (fun _ _ ->
+                    selectedAppPage.Value <- targetPage
+                )
+            ] [
+                text label
+            ]
+
+        ) selectedAppPage.View
+
+    let navbar = 
+        Doc.BindView (fun isHighContrast ->
+
+            nav [
+                attr.``class`` (
+                    if isHighContrast then
+                        "bg-slate-900 shadow-md border-b border-slate-700"
+                    else
+                        "bg-white shadow-md"
+                )
+            ] [
                 div [attr.``class`` "max-w-7xl mx-auto px-4"]
                     [
 
@@ -1391,50 +1668,11 @@ module Client =
                                 div [attr.``class`` "hidden md:flex gap-6"]
                                     [
 
-                                        button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value DashboardPage)
-                                            on.click (fun _ _ ->
-                                                selectedAppPage.Value <- DashboardPage
-                                            )
-                                        ] [
-                                            text "Dashboard"
-                                        ]
-
-                                        button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value TasksPage)
-                                            on.click (fun _ _ ->
-                                                selectedAppPage.Value <- TasksPage
-                                            )
-                                        ] [
-                                            text "Tasks"
-                                        ]
-
-                                        button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value GalleryPage)
-                                            on.click (fun _ _ ->
-                                                selectedAppPage.Value <- GalleryPage
-                                            )
-                                        ] [
-                                            text "Gallery"
-                                        ]
-
-                                        button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value ProfilePage)
-                                            on.click (fun _ _ ->
-                                                selectedAppPage.Value <- ProfilePage
-                                            )
-                                        ] [
-                                            text "Profile"
-                                        ]
-
-                                        button [
-                                            attr.``class`` (navButtonClass selectedAppPage.Value SettingsPage)
-                                            on.click (fun _ _ ->
-                                                selectedAppPage.Value <- SettingsPage
-                                            )
-                                        ] [
-                                            text "Settings"
-                                        ]
+                                        navButton DashboardPage "Dashboard"
+                                        navButton TasksPage "Tasks"
+                                        navButton GalleryPage "Gallery"
+                                        navButton ProfilePage "Profile"
+                                        navButton SettingsPage "Settings"
                                     ]
 
                                 button [
@@ -1516,6 +1754,7 @@ module Client =
 
                 ) mobileMenuOpen.View
             ]
+        ) highContrastMode.View
 
     let People =
         ListModel.FromSeq [
@@ -1532,10 +1771,28 @@ module Client =
         let Home () =
             async {
                return
-                    div [attr.``class`` "p-6 bg-slate-100 min-h-screen"]
-                    [
-                        Doc.BindView renderAppPage selectedAppPage.View
-                    ]
+                    Doc.BindView (fun isLargeText  ->
+                        Doc.BindView (fun isHighContrast ->
+                            let baseClass =
+                                if isLargeText then
+                                    "p-6 min-h-screen max-w-none text-lg "
+                                else
+                                    "p-6 min-h-screen max-w-none"
+
+                            let contrastClass =
+                                if isHighContrast then
+                                    "bg-slate-950 text-slate-100"
+                                else
+                                    "bg-slate-100 text-slate-950"
+
+                            div [
+                                attr.``class`` (baseClass + contrastClass)
+                            ] [
+                                Doc.BindView renderAppPage selectedAppPage.View
+                            ]
+
+                        ) highContrastMode.View
+                    ) largeTextMode.View
                 }
         (*              
                         h1 [attr.``class`` "text-3xl font-bold mb-2 text-slate-800"]
