@@ -15,6 +15,12 @@ prebundles.forEach(file => {
       format: 'iife',
       outfile: 'wwwroot/Scripts/' + file,
       globalName: 'wsbundle'
+      loader: {
+            ".png": "file",
+            ".jpg": "file",
+            ".jpeg": "file",
+            ".svg": "file"
+        }
     };
 
     console.log("Bundling:", file);
@@ -34,6 +40,12 @@ if (existsSync('./build/workers/')) {
         minify: true,
         format: 'iife',
         outfile: 'wwwroot/Scripts/workers/' + file,
+        loader: {
+            ".png": "file",
+            ".jpg": "file",
+            ".jpeg": "file",
+            ".svg": "file"
+        }
       };
 
       console.log("Bundling worker:", file);
