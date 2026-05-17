@@ -87,6 +87,167 @@ module Client =
     let showReminders = Var.Create true
     let settingsStorageKey = "careSettings"
 
+    let updateBodyContrastClass () =
+        if highContrastMode.Value then
+            JS.Document.Body.SetAttribute("class", "bg-slate-950 hc-mode")
+        else
+            JS.Document.Body.SetAttribute("class", "bg-slate-100")
+
+    let installHighContrastCss () =
+        let styleId = "senior-care-high-contrast-style"
+
+        if JS.Document.GetElementById(styleId) = null then
+            let css = """
+body.hc-mode {
+    background-color: #020617 !important;
+    color: #ffffff !important;
+}
+
+body.hc-mode nav {
+    background-color: #0f172a !important;
+    border-bottom: 1px solid #334155 !important;
+}
+
+body.hc-mode .bg-white,
+body.hc-mode .bg-blue-50,
+body.hc-mode .bg-green-50,
+body.hc-mode .bg-red-50,
+body.hc-mode .bg-orange-50,
+body.hc-mode .bg-pink-50 {
+    background-color: #1e293b !important;
+}
+
+body.hc-mode .bg-slate-100,
+body.hc-mode .bg-gray-100 {
+    background-color: #020617 !important;
+}
+
+body.hc-mode .border-slate-100,
+body.hc-mode .border-blue-100,
+body.hc-mode .border-green-100,
+body.hc-mode .border-red-100,
+body.hc-mode .border-orange-200,
+body.hc-mode .border-red-200,
+body.hc-mode .border-green-200 {
+    border-color: #334155 !important;
+}
+
+body.hc-mode .text-slate-800,
+body.hc-mode .text-slate-700,
+body.hc-mode .text-slate-600,
+body.hc-mode .text-slate-500,
+body.hc-mode .text-blue-800,
+body.hc-mode .text-blue-700,
+body.hc-mode .text-green-700,
+body.hc-mode .text-green-600,
+body.hc-mode .text-red-700,
+body.hc-mode .text-red-600,
+body.hc-mode .text-orange-700,
+body.hc-mode .text-orange-500,
+body.hc-mode .text-purple-700,
+body.hc-mode .text-pink-700 {
+    color: #ffffff !important;
+}
+
+body.hc-mode .bg-slate-200 {
+    background-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+body.hc-mode .bg-blue-100 {
+    background-color: #1e3a8a !important;
+    color: #dbeafe !important;
+}
+
+body.hc-mode .bg-green-100 {
+    background-color: #14532d !important;
+    color: #dcfce7 !important;
+}
+
+body.hc-mode .bg-orange-100 {
+    background-color: #7c2d12 !important;
+    color: #ffedd5 !important;
+}
+
+body.hc-mode .bg-red-100 {
+    background-color: #7f1d1d !important;
+    color: #fee2e2 !important;
+}
+
+body.hc-mode .bg-purple-100 {
+    background-color: #581c87 !important;
+    color: #f3e8ff !important;
+}
+
+body.hc-mode .bg-pink-100 {
+    background-color: #831843 !important;
+    color: #fce7f3 !important;
+}
+
+body.hc-mode .bg-blue-600,
+body.hc-mode .bg-green-600,
+body.hc-mode .bg-orange-500,
+body.hc-mode .bg-red-600 {
+    color: #ffffff !important;
+}
+
+body.hc-mode input,
+body.hc-mode select,
+body.hc-mode textarea {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #475569 !important;
+}
+
+body.hc-mode input::placeholder,
+body.hc-mode textarea::placeholder {
+    color: #cbd5e1 !important;
+}
+
+body.hc-mode .shadow,
+body.hc-mode .shadow-md,
+body.hc-mode .shadow-lg,
+body.hc-mode .shadow-xl {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.hc-mode .rounded-2xl,
+body.hc-mode .rounded-3xl {
+    border-color: #334155 !important;
+}
+.large-text-mode,
+.large-text-mode p,
+.large-text-mode button,
+.large-text-mode input,
+.large-text-mode select,
+.large-text-mode textarea,
+.large-text-mode span,
+.large-text-mode label {
+    font-size: 1.18rem !important;
+}
+
+.large-text-mode h1 {
+    font-size: 2.4rem !important;
+}
+
+.large-text-mode h2 {
+    font-size: 1.9rem !important;
+}
+
+.large-text-mode h3 {
+    font-size: 1.45rem !important;
+}
+
+.large-text-mode .text-xs,
+.large-text-mode .text-sm {
+    font-size: 1rem !important;
+}
+"""
+            let styleElement = JS.Document.CreateElement("style")
+            styleElement.SetAttribute("id", styleId)
+            styleElement?innerHTML <- css
+            JS.Document.Head.AppendChild(styleElement) |> ignore
+
     let profileName = Var.Create ""
     let profileBirthDate = Var.Create ""
     let profileHeight = Var.Create ""
@@ -363,7 +524,7 @@ module Client =
 
                         button [
                             attr.``class`` (
-                                if settingVar.Value then
+                                if isEnabled then
                                     "px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow"
                                 else
                                     "px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-medium"
@@ -372,16 +533,17 @@ module Client =
                             on.click (fun _ _ ->
                                 settingVar.Value <- not settingVar.Value
                                 saveSettings()
+                                updateBodyContrastClass()
                             )
                         ] [
-                            if settingVar.Value then
+                            if isEnabled then
                                 text "On"
                             else
                                 text "Off"
                         ]
                     ]
-                ) settingVar.View
-            ) highContrastMode.View
+                ) highContrastMode.View
+            ) settingVar.View
 
     let medicationStockText stock =
         if stock <= 2 then
@@ -636,7 +798,7 @@ module Client =
                 p [attr.``class`` "text-slate-600 mb-6"]
                     [text "Dashboard Page"]
 *)
-                div [attr.``class`` "grid gap-4 md:grid-cols-4"]
+                div [attr.``class`` "grid gap-4 grid-cols-1 lg:grid-cols-3"]
                     [
                         div [attr.``class`` "bg-white p-6 rounded-2xl shadow border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"]
                             [
@@ -1775,13 +1937,13 @@ module Client =
                         Doc.BindView (fun isHighContrast ->
                             let baseClass =
                                 if isLargeText then
-                                    "p-6 min-h-screen max-w-none text-lg "
+                                    "p-6 min-h-screen max-w-none large-text-mode "
                                 else
-                                    "p-6 min-h-screen max-w-none"
+                                    "p-6 min-h-screen max-w-none "
 
                             let contrastClass =
                                 if isHighContrast then
-                                    "bg-slate-950 text-slate-100"
+                                    "bg-slate-950 text-white"
                                 else
                                     "bg-slate-100 text-slate-950"
 
@@ -2074,6 +2236,8 @@ module Client =
         loadTasks()
         loadSettings()
         loadGalleryPhotos()
+        installHighContrastCss()
+        updateBodyContrastClass()
 
         let newName = Var.Create ""
 
