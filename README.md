@@ -4,7 +4,7 @@ The application helps elderly users manage their daily care tasks and medication
 
 Icons were added to improve usability for elderly users.
 
-Features
+Features:
 - Elderly-friendly modern UI
 - Responsive desktop and mobile layout
 - Dashboard with daily overview
@@ -16,17 +16,43 @@ Features
 - Dashboard notifications
 - Image timestamps
 - Modal image preview
-	- Accessibility settings:
-	- High contrast mode
+- Accessibility settings
+- High contrast mode
 - Local data saving with LocalStorage
 
-Technologies
+Technologies:
 - F#
 - WebSharper SPA
 - WebSharper UI
 - Tailwind CSS
 - ASP.NET Core
 - .NET 10
+
+## How to Run
+
+Clone the repository:
+
+```bash
+git clone https://github.com/bjulianna99/Senior-Care-Companion.git
+```
+
+Open the project folder:
+
+```bash
+cd Senior-Care-Companion
+```
+
+Run the application:
+
+```bash
+dotnet run
+```
+
+The application will start on a local development server.
+
+## Live Demo
+
+[Try the application here](https://bjulianna99.github.io/Senior-Care-Companion/)
 
 ## Screenshots
 
